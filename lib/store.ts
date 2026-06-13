@@ -29,30 +29,81 @@ interface AuthStore {
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
+  permissions: Record<string, string>
+  roles: string[]
+  dashboardRoute: string
+  canManageUsers: boolean
+  canManagePayroll: boolean
+  canApproveLeaves: boolean
+  canViewAuditLogs: boolean
 
   setUser: (user: User | null) => void
   setOrganization: (org: Organization | null) => void
   setAccessToken: (token: string | null) => void
   setIsLoading: (loading: boolean) => void
   setError: (error: string | null) => void
+  setPermissions: (permissions: Record<string, string>) => void
+  setRoles: (roles: string[]) => void
+  setDashboardRoute: (route: string) => void
+  setCapabilities: (caps: any) => void
+  hasPermission: (code: string) => boolean
+  hasRole: (roleType: string | string[]) => boolean
+  hasAnyPermission: (permissions: string[]) => boolean
   logout: () => void
+  login: (credential: string, password: string, organizationId?: string) => Promise<void>
 }
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       organization: null,
       accessToken: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      permissions: {},
+      roles: [],
+      dashboardRoute: '/dashboard',
+      canManageUsers: false,
+      canManagePayroll: false,
+      canApproveLeaves: false,
+      canViewAuditLogs: false,
 
       setUser: (user) => set({ user, isAuthenticated: !!user }),
       setOrganization: (organization) => set({ organization }),
       setAccessToken: (accessToken) => set({ accessToken }),
       setIsLoading: (isLoading) => set({ isLoading }),
       setError: (error) => set({ error }),
+      setPermissions: (permissions) => set({ permissions }),
+      setRoles: (roles) => set({ roles }),
+      setDashboardRoute: (dashboardRoute) => set({ dashboardRoute }),
+      setCapabilities: (caps) =>
+        set({
+          canManageUsers: caps.can_manage_users || false,
+          canManagePayroll: caps.can_manage_payroll || false,
+          canApproveLeaves: caps.can_approve_leaves || false,
+          canViewAuditLogs: caps.can_view_audit_logs || false,
+        }),
+      
+      hasPermission: (code: string) => {
+        const { permissions } = get()
+        return code in permissions
+      },
+      
+      hasRole: (roleType: string | string[]) => {
+        const { roles } = get()
+        if (typeof roleType === 'string') {
+          return roles.includes(roleType)
+        }
+        return roleType.some((r) => roles.includes(r))
+      },
+      
+      hasAnyPermission: (perms: string[]) => {
+        const { permissions } = get()
+        return perms.some((p) => p in permissions)
+      },
+
       logout: () =>
         set({
           user: null,
@@ -60,7 +111,66 @@ export const useAuthStore = create<AuthStore>()(
           accessToken: null,
           isAuthenticated: false,
           error: null,
+          permissions: {},
+          roles: [],
+          dashboardRoute: '/dashboard',
+          canManageUsers: false,
+          canManagePayroll: false,
+          canApproveLeaves: false,
+          canViewAuditLogs: false,
         }),
+
+      login: async (credential: string, password: string, organizationId?: string) => {
+        set({ isLoading: true, error: null })
+        try {
+          const payload: any = {
+            credential,
+            password,
+          }
+          if (organizationId) {
+            payload.organization_id = organizationId
+          }
+
+          const response = await fetch('/api/auth/login/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          })
+
+          if (!response.ok) {
+            throw new Error('Invalid credentials')
+          }
+
+          const data = await response.json()
+          
+          set({
+            user: data.user,
+            organization: data.organization,
+            permissions: data.permissions || {},
+            roles: data.roles || [],
+            dashboardRoute: data.dashboard_route || '/dashboard',
+            canManageUsers: data.can_manage_users || false,
+            canManagePayroll: data.can_manage_payroll || false,
+            canApproveLeaves: data.can_approve_leaves || false,
+            canViewAuditLogs: data.can_view_audit_logs || false,
+            isAuthenticated: true,
+            isLoading: false,
+          })
+
+          if (data.token) {
+            localStorage.setItem('auth_token', data.token)
+            set({ accessToken: data.token })
+          }
+        } catch (error: any) {
+          set({
+            error: error.message || 'Login failed',
+            isLoading: false,
+          })
+          throw error
+        }
+      },
     }),
     {
       name: 'auth-store',
@@ -69,6 +179,9 @@ export const useAuthStore = create<AuthStore>()(
         organization: state.organization,
         accessToken: state.accessToken,
         isAuthenticated: state.isAuthenticated,
+        permissions: state.permissions,
+        roles: state.roles,
+        dashboardRoute: state.dashboardRoute,
       }),
     }
   )

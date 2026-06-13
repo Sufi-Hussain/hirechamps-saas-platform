@@ -187,3 +187,16 @@ class TrainingEnrollmentSerializer(serializers.ModelSerializer):
         fields = ['id', 'employee', 'employee_id', 'training_program', 'program_name',
                   'enrollment_date', 'status', 'completion_date', 'score', 'certificate_url']
         read_only_fields = ['id', 'enrollment_date']
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+
+    class Meta:
+        from .models import AuditLog
+        model = AuditLog
+        fields = ['id', 'user', 'user_email', 'user_name', 'action', 'resource_type',
+                  'resource_id', 'description', 'before_data', 'after_data', 'ip_address',
+                  'user_agent', 'status_code', 'timestamp']
+        read_only_fields = ['id', 'timestamp', 'user', 'user_email', 'user_name']

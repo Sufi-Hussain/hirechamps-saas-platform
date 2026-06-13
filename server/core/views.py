@@ -8,7 +8,8 @@ from django.db.models import Q
 from .models import (
     Organization, User, Department, Designation, Employee, LeaveType,
     LeaveBalance, LeaveRequest, Attendance, SalaryStructure, SalarySlip,
-    PayrollRule, JobPosting, Candidate, TrainingProgram, TrainingEnrollment
+    PayrollRule, JobPosting, Candidate, TrainingProgram, TrainingEnrollment,
+    AuditLog
 )
 from .serializers import (
     OrganizationSerializer, UserSerializer, UserDetailSerializer,
@@ -16,9 +17,10 @@ from .serializers import (
     LeaveTypeSerializer, LeaveBalanceSerializer, LeaveRequestSerializer,
     AttendanceSerializer, SalaryStructureSerializer, SalarySlipSerializer,
     PayrollRuleSerializer, JobPostingSerializer, CandidateSerializer,
-    TrainingProgramSerializer, TrainingEnrollmentSerializer
+    TrainingProgramSerializer, TrainingEnrollmentSerializer, AuditLogSerializer
 )
 from .middleware import get_current_organization
+from .permissions import IsAuditViewer
 
 
 class TenantAwareViewSet(viewsets.ModelViewSet):
@@ -326,3 +328,33 @@ class TrainingEnrollmentViewSet(TenantAwareViewSet):
             return Response(serializer.data)
         except Employee.DoesNotExist:
             return Response({'error': 'Employee profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class AuditLogViewSet(TenantAwareViewSet):
+    """Audit log viewset - read-only with permission checks"""
+    queryset = AuditLog.objects.all()
+    serializer_class = AuditLogSerializer
+    permission_classes = [IsAuthenticated, IsAuditViewer]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['user__email', 'action', 'resource_type', 'description']
+    ordering_fields = ['timestamp', 'action']
+    ordering = ['-timestamp']
+
+    def create(self, request, *args, **kwargs):
+        """Prevent direct creation of audit logs"""
+        return Response({'error': 'Audit logs are auto-generated'}, status=status.HTTP_403_FORBIDDEN)
+
+    def update(self, request, *args, **kwargs):
+        """Prevent modification of audit logs"""
+        return Response({'error': 'Audit logs cannot be modified'}, status=status.HTTP_403_FORBIDDEN)
+
+    def destroy(self, request, *args, **kwargs):
+        """Prevent deletion of audit logs"""
+        return Response({'error': 'Audit logs cannot be deleted'}, status=status.HTTP_403_FORBIDDEN)
+
+    @action(detail=False, methods=['get'])
+    def my_actions(self, request):
+        """Get audit logs for current user's actions"""
+        logs = self.get_queryset().filter(user=request.user)
+        serializer = self.get_serializer(logs, many=True)
+        return Response(serializer.data)

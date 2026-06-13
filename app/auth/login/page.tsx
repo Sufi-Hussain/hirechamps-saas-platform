@@ -9,15 +9,16 @@ import api from '@/lib/api'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { setUser, setAccessToken } = useAuthStore()
+  const { login, dashboardRoute, isLoading: authLoading, error: authError } = useAuthStore()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({
-    email: '',
+    credential: '',
     password: '',
+    organization_id: '',
   })
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
@@ -28,25 +29,11 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      // Login call
-      const response = await api.post('/auth/login/', {
-        email: formData.email,
-        password: formData.password,
-      })
-
-      const { access, user } = response.data
-
-      // Store token and user
-      localStorage.setItem('access_token', access)
-      localStorage.setItem('user', JSON.stringify(user))
-
-      setAccessToken(access)
-      setUser(user)
-
-      // Redirect to dashboard
-      router.push('/dashboard')
+      await login(formData.credential, formData.password, formData.organization_id || undefined)
+      // Redirect to role-based dashboard route
+      router.push(dashboardRoute)
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed. Please try again.')
+      setError(err.message || 'Login failed. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -71,18 +58,18 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email
+              <label htmlFor="credential" className="block text-sm font-medium text-gray-700 mb-1">
+                Email, Username, or Employee ID
               </label>
               <input
-                id="email"
-                name="email"
-                type="email"
+                id="credential"
+                name="credential"
+                type="text"
                 required
-                value={formData.email}
+                value={formData.credential}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                placeholder="you@example.com"
+                placeholder="you@example.com or EMP001"
               />
             </div>
 

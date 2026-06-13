@@ -3,7 +3,8 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     Organization, User, Department, Designation, Employee, LeaveType,
     LeaveBalance, LeaveRequest, Attendance, SalaryStructure, SalarySlip,
-    PayrollRule, JobPosting, Candidate, TrainingProgram, TrainingEnrollment
+    PayrollRule, JobPosting, Candidate, TrainingProgram, TrainingEnrollment,
+    Permission, Role, RolePermission, UserRole, AuditLog
 )
 
 
@@ -131,3 +132,49 @@ class TrainingEnrollmentAdmin(admin.ModelAdmin):
     list_filter = ['status', 'training_program']
     search_fields = ['employee__employee_id', 'training_program__name']
     readonly_fields = ['enrollment_date']
+
+
+@admin.register(Permission)
+class PermissionAdmin(admin.ModelAdmin):
+    list_display = ['code', 'name', 'resource', 'action']
+    list_filter = ['resource', 'action']
+    search_fields = ['code', 'name']
+    readonly_fields = ['code']
+
+
+@admin.register(Role)
+class RoleAdmin(admin.ModelAdmin):
+    list_display = ['name', 'role_type', 'organization', 'is_system_role']
+    list_filter = ['role_type', 'is_system_role', 'organization']
+    search_fields = ['name']
+    readonly_fields = ['is_system_role']
+
+
+@admin.register(RolePermission)
+class RolePermissionAdmin(admin.ModelAdmin):
+    list_display = ['role', 'permission', 'scope', 'granted_at']
+    list_filter = ['scope', 'role', 'granted_at']
+    search_fields = ['role__name', 'permission__code']
+    readonly_fields = ['granted_at']
+
+
+@admin.register(UserRole)
+class UserRoleAdmin(admin.ModelAdmin):
+    list_display = ['user', 'role', 'assigned_at', 'expires_at']
+    list_filter = ['role', 'assigned_at']
+    search_fields = ['user__email', 'role__name']
+    readonly_fields = ['assigned_at']
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ['action', 'user', 'resource_type', 'timestamp']
+    list_filter = ['action', 'resource_type', 'timestamp']
+    search_fields = ['user__email', 'description', 'resource_id']
+    readonly_fields = ['timestamp', 'organization', 'user', 'action', 'resource_type', 'resource_id', 'description', 'before_data', 'after_data', 'ip_address', 'user_agent', 'status_code']
+    
+    def has_add_permission(self, request):
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        return False

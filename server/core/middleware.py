@@ -72,7 +72,39 @@ class TenantMiddleware(MiddlewareMixin):
 
     def process_response(self, request, response):
         """Clean up thread-local storage after request processing"""
+        # Log failed login attempts
+        if request.path == '/api/auth/login/' and request.method == 'POST':
+            organization = get_current_organization()
+            user = get_current_user()
+            
+            if response.status_code in [400, 401, 403]:
+                from .permissions import PermissionChecker
+                ip_address = self._get_client_ip(request)
+                user_agent = request.META.get('HTTP_USER_AGENT', '')
+                
+                if organization:
+                    action = 'login_failed' if response.status_code == 401 else 'permission_denied'
+                    PermissionChecker.log_action(
+                        organization=organization,
+                        user=user,
+                        action=action,
+                        resource_type='User',
+                        description=f'Failed login attempt',
+                        ip_address=ip_address,
+                        user_agent=user_agent,
+                        status_code=response.status_code,
+                    )
+        
         # Clear thread-local data
         _thread_locals.organization = None
         _thread_locals.user = None
         return response
+
+    def _get_client_ip(self, request):
+        """Get client IP address from request"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip

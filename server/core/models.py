@@ -436,3 +436,176 @@ class TrainingEnrollment(BaseModel):
 
     def __str__(self):
         return f"{self.employee.employee_id} - {self.training_program.name}"
+
+
+class Permission(BaseModel):
+    """Fine-grained permissions in the system"""
+    RESOURCE_CHOICES = [
+        ('employees', 'Employees'),
+        ('leave', 'Leave Management'),
+        ('attendance', 'Attendance'),
+        ('payroll', 'Payroll'),
+        ('recruitment', 'Recruitment'),
+        ('learning', 'Learning'),
+        ('reports', 'Reports & Analytics'),
+        ('settings', 'Settings'),
+        ('audit', 'Audit Logs'),
+    ]
+
+    ACTION_CHOICES = [
+        ('view', 'View'),
+        ('create', 'Create'),
+        ('edit', 'Edit'),
+        ('delete', 'Delete'),
+        ('approve', 'Approve'),
+        ('export', 'Export'),
+    ]
+
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    resource = models.CharField(max_length=50, choices=RESOURCE_CHOICES)
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    code = models.CharField(max_length=100, unique=True)  # e.g., 'employees.view'
+
+    class Meta:
+        unique_together = ['resource', 'action']
+        ordering = ['resource', 'action']
+
+    def __str__(self):
+        return f"{self.code}: {self.name}"
+
+
+class Role(BaseModel):
+    """Role definition with description and scope"""
+    ROLE_TYPE_CHOICES = [
+        ('platform_admin', 'Platform Administrator'),
+        ('company_owner', 'Company Owner'),
+        ('tenant_admin', 'Organization Admin'),
+        ('hr_manager', 'HR Manager'),
+        ('payroll_manager', 'Payroll Manager'),
+        ('recruiter', 'Recruiter'),
+        ('department_manager', 'Department Manager'),
+        ('learning_manager', 'Learning Manager'),
+        ('employee', 'Employee'),
+        ('auditor', 'Auditor'),
+    ]
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name='roles',
+        null=True,
+        blank=True,  # NULL for platform-wide roles
+    )
+    name = models.CharField(max_length=255)
+    role_type = models.CharField(max_length=50, choices=ROLE_TYPE_CHOICES, unique=True)
+    description = models.TextField(blank=True)
+    permissions = models.ManyToManyField(Permission, related_name='roles', through='RolePermission')
+    is_system_role = models.BooleanField(default=False)  # Cannot be modified if True
+    can_manage_users = models.BooleanField(default=False)
+    can_manage_payroll = models.BooleanField(default=False)
+    can_approve_leaves = models.BooleanField(default=False)
+    can_generate_reports = models.BooleanField(default=False)
+    can_view_audit_logs = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ['organization', 'name']
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['organization', 'role_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_role_type_display()})"
+
+
+class RolePermission(BaseModel):
+    """Mapping of roles to permissions with scope"""
+    SCOPE_CHOICES = [
+        ('all', 'All'),
+        ('own_department', 'Own Department'),
+        ('own_records', 'Own Records Only'),
+        ('assigned_team', 'Assigned Team'),
+    ]
+
+    role = models.ForeignKey(Role, on_delete=models.CASCADE)
+    permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
+    scope = models.CharField(max_length=50, choices=SCOPE_CHOICES, default='all')
+    granted_at = models.DateTimeField(auto_now_add=True)
+    granted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='permissions_granted',
+    )
+
+    class Meta:
+        unique_together = ['role', 'permission']
+
+    def __str__(self):
+        return f"{self.role.name} -> {self.permission.code} ({self.scope})"
+
+
+class UserRole(BaseModel):
+    """Assignment of roles to users (user can have multiple roles)"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_roles')
+    role = models.ForeignKey(Role, on_delete=models.CASCADE)
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    assigned_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='roles_assigned',
+    )
+    expires_at = models.DateTimeField(null=True, blank=True)  # For temporary role assignments
+
+    class Meta:
+        unique_together = ['user', 'role']
+        indexes = [
+            models.Index(fields=['user', 'assigned_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} -> {self.role.name}"
+
+
+class AuditLog(BaseModel):
+    """Complete audit trail of all system actions"""
+    ACTION_CHOICES = [
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('create', 'Create'),
+        ('update', 'Update'),
+        ('delete', 'Delete'),
+        ('approve', 'Approve'),
+        ('reject', 'Reject'),
+        ('export', 'Export'),
+        ('login_failed', 'Login Failed'),
+        ('permission_denied', 'Permission Denied'),
+    ]
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='audit_logs')
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='audit_logs')
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
+    resource_type = models.CharField(max_length=100)  # e.g., 'Employee', 'LeaveRequest'
+    resource_id = models.CharField(max_length=100, blank=True)
+    description = models.TextField()
+    before_data = models.JSONField(null=True, blank=True)  # Previous values
+    after_data = models.JSONField(null=True, blank=True)  # New values
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    status_code = models.IntegerField(null=True, blank=True)  # HTTP status
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['organization', 'action', 'timestamp']),
+            models.Index(fields=['user', 'timestamp']),
+            models.Index(fields=['resource_type', 'resource_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.action} - {self.resource_type} ({self.timestamp})"
