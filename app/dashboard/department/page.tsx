@@ -1,27 +1,27 @@
 'use client'
 import { useAuthStore } from '@/lib/store'
-import { DollarSign, FileText, BarChart3, Calendar } from 'lucide-react'
+import { Users, Calendar, Clock, TrendingUp } from 'lucide-react'
 
-export default function PayrollDashboard() {
+export default function DepartmentDashboard() {
   const { user } = useAuthStore()
   const stats = [
-    { label: 'Monthly Payroll', value: '$234,560', icon: DollarSign },
-    { label: 'Processed Slips', value: '156', icon: FileText },
-    { label: 'Tax Deducted', value: '$42,340', icon: BarChart3 },
-    { label: 'Processing Status', value: '100%', icon: Calendar },
+    { label: 'Team Size', value: '24', icon: Users },
+    { label: 'Leave Requests', value: '5', icon: Calendar },
+    { label: 'Present Today', value: '23', icon: Clock },
+    { label: 'Performance', value: '8.5/10', icon: TrendingUp },
   ]
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Payroll Dashboard</h1>
-        <p className="text-gray-600 mt-1">Salary processing and financial management</p>
+        <h1 className="text-3xl font-bold text-gray-900">Department Dashboard</h1>
+        <p className="text-gray-600 mt-1">Team management and performance tracking</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {stats.map((s, i) => (
           <div key={i} className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex justify-between items-start">
               <div><p className="text-sm text-gray-600">{s.label}</p><p className="text-2xl font-bold mt-2">{s.value}</p></div>
-              <s.icon className="h-6 w-6 text-green-600" />
+              <s.icon className="h-6 w-6 text-blue-600" />
             </div>
           </div>
         ))}

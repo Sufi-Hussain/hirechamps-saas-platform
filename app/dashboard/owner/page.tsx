@@ -1,20 +1,20 @@
 'use client'
 import { useAuthStore } from '@/lib/store'
-import { DollarSign, FileText, BarChart3, Calendar } from 'lucide-react'
+import { Users, CreditCard, TrendingUp, BarChart3 } from 'lucide-react'
 
-export default function PayrollDashboard() {
-  const { user } = useAuthStore()
+export default function CompanyOwnerDashboard() {
+  const { user, organization } = useAuthStore()
   const stats = [
-    { label: 'Monthly Payroll', value: '$234,560', icon: DollarSign },
-    { label: 'Processed Slips', value: '156', icon: FileText },
-    { label: 'Tax Deducted', value: '$42,340', icon: BarChart3 },
-    { label: 'Processing Status', value: '100%', icon: Calendar },
+    { label: 'Team Members', value: '24', icon: Users },
+    { label: 'Subscription', value: 'Professional', icon: CreditCard },
+    { label: 'Growth', value: '+18%', icon: TrendingUp },
+    { label: 'Active Projects', value: '8', icon: BarChart3 },
   ]
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Payroll Dashboard</h1>
-        <p className="text-gray-600 mt-1">Salary processing and financial management</p>
+        <h1 className="text-3xl font-bold text-gray-900">Company Dashboard</h1>
+        <p className="text-gray-600 mt-1">{organization?.name} - Full business overview</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {stats.map((s, i) => (

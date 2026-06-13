@@ -8,6 +8,8 @@ from .views import (
     AuditLogViewSet
 )
 from .auth_views import login, logout, change_password, get_current_user
+from .account_views import register_company, invite_employee, create_hr_user, get_user_organizations
+from .navigation_views import get_navigation_menu
 
 router = DefaultRouter()
 router.register(r'organizations', OrganizationViewSet)
@@ -33,5 +35,10 @@ urlpatterns = [
     path('auth/logout/', logout, name='logout'),
     path('auth/change-password/', change_password, name='change-password'),
     path('auth/me/', get_current_user, name='get-current-user'),
+    path('auth/register-company/', register_company, name='register-company'),
+    path('accounts/invite-employee/', invite_employee, name='invite-employee'),
+    path('accounts/create-hr-user/', create_hr_user, name='create-hr-user'),
+    path('accounts/my-organizations/', get_user_organizations, name='my-organizations'),
+    path('navigation/menu/', get_navigation_menu, name='navigation-menu'),
     path('', include(router.urls)),
 ]
