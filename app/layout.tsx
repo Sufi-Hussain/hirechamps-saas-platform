@@ -10,8 +10,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'HireChamps - HR Management Platform',
+  description: 'Complete HR, Payroll, Recruitment & Learning Management System',
   generator: 'v0.app',
   icons: {
     icon: [
