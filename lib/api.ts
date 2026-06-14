@@ -10,30 +10,59 @@ const api: AxiosInstance = axios.create({
   withCredentials: true,
 })
 
-// Add request interceptor to include auth token
+// Add request interceptor to include JWT access token
 api.interceptors.request.use(
   (config) => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    const accessToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`
     }
     return config
   },
   (error) => Promise.reject(error)
 )
 
-// Add response interceptor to handle errors
+// Add response interceptor to handle token refresh and errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('access_token')
+  async (error) => {
+    const originalRequest = error.config
+
+    if (error.response?.status === 401 && !originalRequest._retry && typeof window !== 'undefined') {
+      originalRequest._retry = true
+      const refreshToken = localStorage.getItem('refreshToken')
+
+      if (refreshToken) {
+        try {
+          // Try to refresh the token
+          const response = await api.post('/token/refresh/', { refresh: refreshToken })
+          const { access, refresh } = response.data
+
+          // Update tokens
+          localStorage.setItem('accessToken', access)
+          if (refresh) {
+            localStorage.setItem('refreshToken', refresh)
+          }
+
+          // Retry original request with new token
+          originalRequest.headers.Authorization = `Bearer ${access}`
+          return api(originalRequest)
+        } catch (refreshError) {
+          // Refresh failed - clear auth and redirect to login
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+          localStorage.removeItem('user')
+          window.location.href = '/auth'
+          return Promise.reject(refreshError)
+        }
+      } else {
+        // No refresh token - redirect to login
+        localStorage.removeItem('accessToken')
         localStorage.removeItem('user')
-        window.location.href = '/login'
+        window.location.href = '/auth'
       }
     }
+
     return Promise.reject(error)
   }
 )
@@ -43,10 +72,12 @@ export default api
 // API Service Helpers
 export const apiService = {
   // Auth
-  login: (email: string, password: string) =>
-    api.post('/auth/login/', { email, password }),
+  login: (credential: string, password: string) =>
+    api.post('/auth/login/', { credential, password }),
   logout: () => api.post('/auth/logout/'),
-  register: (data: any) => api.post('/auth/register/', data),
+  registerCompany: (data: any) => api.post('/auth/register-company/', data),
+  changePassword: (data: any) => api.post('/auth/change-password/', data),
+  getCurrentUser: () => api.get('/auth/me/'),
 
   // Organizations
   getOrganizations: () => api.get('/organizations/'),
@@ -56,7 +87,6 @@ export const apiService = {
 
   // Users
   getUsers: (params?: any) => api.get('/users/', { params }),
-  getCurrentUser: () => api.get('/users/me/'),
   getUser: (id: string) => api.get(`/users/${id}/`),
   createUser: (data: any) => api.post('/users/', data),
   updateUser: (id: string, data: any) => api.patch(`/users/${id}/`, data),
