@@ -26,10 +26,11 @@ interface AuthStore {
   user: User | null
   organization: Organization | null
   accessToken: string | null
+  refreshToken: string | null
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
-  permissions: Record<string, string>
+  permissions: string[]
   roles: string[]
   dashboardRoute: string
   canManageUsers: boolean
@@ -40,9 +41,10 @@ interface AuthStore {
   setUser: (user: User | null) => void
   setOrganization: (org: Organization | null) => void
   setAccessToken: (token: string | null) => void
+  setRefreshToken: (token: string | null) => void
   setIsLoading: (loading: boolean) => void
   setError: (error: string | null) => void
-  setPermissions: (permissions: Record<string, string>) => void
+  setPermissions: (permissions: string[]) => void
   setRoles: (roles: string[]) => void
   setDashboardRoute: (route: string) => void
   setCapabilities: (caps: any) => void
@@ -59,10 +61,11 @@ export const useAuthStore = create<AuthStore>()(
       user: null,
       organization: null,
       accessToken: null,
+      refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
-      permissions: {},
+      permissions: [],
       roles: [],
       dashboardRoute: '/dashboard',
       canManageUsers: false,
@@ -73,6 +76,7 @@ export const useAuthStore = create<AuthStore>()(
       setUser: (user) => set({ user, isAuthenticated: !!user }),
       setOrganization: (organization) => set({ organization }),
       setAccessToken: (accessToken) => set({ accessToken }),
+      setRefreshToken: (refreshToken) => set({ refreshToken }),
       setIsLoading: (isLoading) => set({ isLoading }),
       setError: (error) => set({ error }),
       setPermissions: (permissions) => set({ permissions }),
@@ -88,7 +92,7 @@ export const useAuthStore = create<AuthStore>()(
       
       hasPermission: (code: string) => {
         const { permissions } = get()
-        return code in permissions
+        return permissions.includes(code)
       },
       
       hasRole: (roleType: string | string[]) => {
@@ -101,24 +105,32 @@ export const useAuthStore = create<AuthStore>()(
       
       hasAnyPermission: (perms: string[]) => {
         const { permissions } = get()
-        return perms.some((p) => p in permissions)
+        return perms.some((p) => permissions.includes(p))
       },
 
-      logout: () =>
+      logout: () => {
+        // Clear localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+          localStorage.removeItem('user')
+        }
         set({
           user: null,
           organization: null,
           accessToken: null,
+          refreshToken: null,
           isAuthenticated: false,
           error: null,
-          permissions: {},
+          permissions: [],
           roles: [],
           dashboardRoute: '/dashboard',
           canManageUsers: false,
           canManagePayroll: false,
           canApproveLeaves: false,
           canViewAuditLogs: false,
-        }),
+        })
+      },
 
       login: async (credential: string, password: string, organizationId?: string) => {
         set({ isLoading: true, error: null })
@@ -131,7 +143,7 @@ export const useAuthStore = create<AuthStore>()(
             payload.organization_id = organizationId
           }
 
-          const response = await fetch('/api/auth/login/', {
+          const response = await fetch('http://localhost:8000/api/auth/login/', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -140,29 +152,40 @@ export const useAuthStore = create<AuthStore>()(
           })
 
           if (!response.ok) {
-            throw new Error('Invalid credentials')
+            const errorData = await response.json().catch(() => ({}))
+            throw new Error(errorData.detail || errorData.message || 'Invalid credentials')
           }
 
           const data = await response.json()
           
+          // Store tokens
+          if (data.access_token) {
+            localStorage.setItem('accessToken', data.access_token)
+          }
+          if (data.refresh_token) {
+            localStorage.setItem('refreshToken', data.refresh_token)
+          }
+
+          // Store user data
+          if (data.user) {
+            localStorage.setItem('user', JSON.stringify(data.user))
+          }
+          
           set({
             user: data.user,
             organization: data.organization,
-            permissions: data.permissions || {},
+            permissions: data.permissions || [],
             roles: data.roles || [],
             dashboardRoute: data.dashboard_route || '/dashboard',
             canManageUsers: data.can_manage_users || false,
             canManagePayroll: data.can_manage_payroll || false,
             canApproveLeaves: data.can_approve_leaves || false,
             canViewAuditLogs: data.can_view_audit_logs || false,
+            accessToken: data.access_token,
+            refreshToken: data.refresh_token,
             isAuthenticated: true,
             isLoading: false,
           })
-
-          if (data.token) {
-            localStorage.setItem('auth_token', data.token)
-            set({ accessToken: data.token })
-          }
         } catch (error: any) {
           set({
             error: error.message || 'Login failed',
@@ -178,10 +201,15 @@ export const useAuthStore = create<AuthStore>()(
         user: state.user,
         organization: state.organization,
         accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
         permissions: state.permissions,
         roles: state.roles,
         dashboardRoute: state.dashboardRoute,
+        canManageUsers: state.canManageUsers,
+        canManagePayroll: state.canManagePayroll,
+        canApproveLeaves: state.canApproveLeaves,
+        canViewAuditLogs: state.canViewAuditLogs,
       }),
     }
   )
