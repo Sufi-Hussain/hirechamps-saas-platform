@@ -18,8 +18,8 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ['email', 'first_name', 'last_name', 'organization', 'role', 'created_at']
-    list_filter = ['role', 'organization', 'created_at', 'is_active']
+    list_display = ['email', 'first_name', 'last_name', 'organization', 'role', 'is_active']
+    list_filter = ['role', 'organization', 'is_active']
     search_fields = ['email', 'first_name', 'last_name']
     fieldsets = BaseUserAdmin.fieldsets + (
         ('Organization Info', {'fields': ('organization', 'role', 'phone', 'date_of_birth', 'is_verified')}),

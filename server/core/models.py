@@ -70,6 +70,21 @@ class User(AbstractUser):
     profile_image_url = models.URLField(blank=True)
     is_verified = models.BooleanField(default=False)
     last_login_at = models.DateTimeField(null=True, blank=True)
+    
+    groups = models.ManyToManyField(
+        'auth.Group',
+        verbose_name='groups',
+        blank=True,
+        help_text='The groups this user belongs to.',
+        related_name='custom_user_set',
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        verbose_name='user permissions',
+        blank=True,
+        help_text='Specific permissions for this user.',
+        related_name='custom_user_set',
+    )
 
     class Meta:
         unique_together = ['email', 'organization']
