@@ -77,7 +77,7 @@ export default function CompanyOwnerRegisterPage() {
 
     setLoading(true)
     try {
-      const response = await fetch('/api/auth/register-company/', {
+      const response = await fetch('http://localhost:8000/api/auth/register-company/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -85,7 +85,7 @@ export default function CompanyOwnerRegisterPage() {
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || 'Registration failed')
+        throw new Error(data.detail || data.error || 'Registration failed')
       }
 
       setSuccess(true)
@@ -101,7 +101,7 @@ export default function CompanyOwnerRegisterPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 flex flex-col items-center justify-center px-4 py-12">
-      <Link href="/auth/company-owner/login" className="absolute top-4 left-4 flex items-center gap-2 text-slate-600 hover:text-slate-900">
+      <Link href="/auth/register-entity" className="absolute top-4 left-4 flex items-center gap-2 text-slate-600 hover:text-slate-900">
         <ArrowLeft className="w-4 h-4" />
         Back
       </Link>
