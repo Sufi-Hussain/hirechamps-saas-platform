@@ -7,9 +7,11 @@ from django.db import transaction
 from django.utils import timezone
 import secrets
 
-from .models import Organization, User, Role, UserRole
+from .models import Organization, User, Role, UserRole, Invite
 from .permissions import PermissionChecker
 from .serializers import UserSerializer
+from django.core.mail import send_mail
+from django.conf import settings
 
 
 @api_view(['POST'])
@@ -118,7 +120,6 @@ def invite_employee(request):
         email = request.data.get('email')
         first_name = request.data.get('first_name')
         last_name = request.data.get('last_name')
-        designation_id = request.data.get('designation_id')
 
         if not email:
             return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -126,25 +127,37 @@ def invite_employee(request):
         if User.objects.filter(email=email, organization=organization).exists():
             return Response({'error': 'User already exists in this organization'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Generate invite token
-        invite_token = secrets.token_urlsafe(32)
-
-        # Create user with temporary password
-        temp_password = secrets.token_urlsafe(16)
+        # Create user with unusable password
         user = User.objects.create_user(
             email=email,
             username=email,
-            password=temp_password,
             first_name=first_name,
             last_name=last_name,
             organization=organization,
             role='employee',
             is_active=True,
         )
+        user.set_unusable_password()
+        user.save()
+
+        # Create invite with token
+        invite = Invite.objects.create(user=user)
 
         # Get employee role
-        employee_role = Role.objects.get(role_type='employee', organization=organization)
+        employee_role = Role.objects.get(role_type='employee')
         UserRole.objects.create(user=user, role=employee_role, assigned_by=request.user)
+
+        # Send invite email
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        invite_url = f'{frontend_url}/auth/invite?token={invite.token}'
+        
+        send_mail(
+            subject='You have been invited to join HireChamps',
+            message=f'Click here to set your password and complete your registration: {invite_url}\n\nThis link will expire in 7 days.',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=True,
+        )
 
         # Log action
         PermissionChecker.log_action(
@@ -161,7 +174,7 @@ def invite_employee(request):
             'message': 'Employee invited successfully',
             'user_id': str(user.id),
             'email': email,
-            'invite_link': f'/auth/invite?token={invite_token}',
+            'invite_token': invite.token,
         }, status=status.HTTP_201_CREATED)
 
     except Exception as e:

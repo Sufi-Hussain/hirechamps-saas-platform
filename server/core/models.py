@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from decimal import Decimal
 import uuid
+import secrets
 
 class BaseModel(models.Model):
     """Base model with common fields for all models"""
@@ -624,3 +625,33 @@ class AuditLog(BaseModel):
 
     def __str__(self):
         return f"{self.action} - {self.resource_type} ({self.timestamp})"
+
+
+class Invite(BaseModel):
+    """Employee invitation with secure token"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='invites')
+    token = models.CharField(max_length=255, unique=True, editable=False)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['user', 'is_used']),
+            models.Index(fields=['expires_at']),
+        ]
+    
+    def save(self, *args, **kwargs):
+        if not self.token:
+            self.token = secrets.token_urlsafe(32)
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timezone.timedelta(days=7)
+        super().save(*args, **kwargs)
+    
+    def is_valid(self):
+        """Check if invite is still valid"""
+        return not self.is_used and timezone.now() < self.expires_at
+    
+    def __str__(self):
+        return f"Invite for {self.user.email}"

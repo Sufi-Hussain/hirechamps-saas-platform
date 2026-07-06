@@ -1,8 +1,10 @@
 from rest_framework import serializers
+from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 from .models import (
     Organization, User, Department, Designation, Employee, LeaveType,
     LeaveBalance, LeaveRequest, Attendance, SalaryStructure, SalarySlip,
-    PayrollRule, JobPosting, Candidate, TrainingProgram, TrainingEnrollment
+    PayrollRule, JobPosting, Candidate, TrainingProgram, TrainingEnrollment, Invite
 )
 
 
@@ -200,3 +202,62 @@ class AuditLogSerializer(serializers.ModelSerializer):
                   'resource_id', 'description', 'before_data', 'after_data', 'ip_address',
                   'user_agent', 'status_code', 'timestamp']
         read_only_fields = ['id', 'timestamp', 'user', 'user_email', 'user_name']
+
+
+class InviteSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    is_valid = serializers.SerializerMethodField()
+    time_remaining = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Invite
+        fields = ['id', 'token', 'user', 'user_email', 'user_name', 'expires_at', 
+                  'is_used', 'is_valid', 'time_remaining', 'created_at']
+        read_only_fields = ['id', 'token', 'expires_at', 'is_used', 'created_at']
+
+    def get_is_valid(self, obj):
+        return obj.is_valid()
+
+    def get_time_remaining(self, obj):
+        if not obj.is_valid():
+            return 0
+        remaining = obj.expires_at - timezone.now()
+        return int(remaining.total_seconds())
+
+
+class VerifyInviteSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=255)
+
+    def validate_token(self, value):
+        try:
+            invite = Invite.objects.get(token=value)
+            if not invite.is_valid():
+                raise serializers.ValidationError("Invite is invalid or expired.")
+        except Invite.DoesNotExist:
+            raise serializers.ValidationError("Invite not found.")
+        return value
+
+
+class SetPasswordSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=255)
+    password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
+        
+        try:
+            validate_password(data['password'])
+        except Exception as e:
+            raise serializers.ValidationError({"password": str(e)})
+        
+        try:
+            invite = Invite.objects.get(token=data['token'])
+            if not invite.is_valid():
+                raise serializers.ValidationError("Invite is invalid or expired.")
+        except Invite.DoesNotExist:
+            raise serializers.ValidationError("Invite not found.")
+        
+        return data

@@ -7,7 +7,7 @@ from .views import (
     JobPostingViewSet, CandidateViewSet, TrainingProgramViewSet, TrainingEnrollmentViewSet,
     AuditLogViewSet
 )
-from .auth_views import login, logout, change_password, get_current_user
+from .auth_views import login, logout, change_password, get_current_user, verify_invite, set_password
 from .account_views import register_company, invite_employee, create_hr_user, get_user_organizations
 from .navigation_views import get_navigation_menu
 
@@ -36,6 +36,8 @@ urlpatterns = [
     path('auth/change-password/', change_password, name='change-password'),
     path('auth/me/', get_current_user, name='get-current-user'),
     path('auth/register-company/', register_company, name='register-company'),
+    path('auth/verify-invite/', verify_invite, name='verify-invite'),
+    path('auth/set-password/', set_password, name='set-password'),
     path('accounts/invite-employee/', invite_employee, name='invite-employee'),
     path('accounts/create-hr-user/', create_hr_user, name='create-hr-user'),
     path('accounts/my-organizations/', get_user_organizations, name='my-organizations'),

@@ -6,8 +6,9 @@ from django.contrib.auth import authenticate
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User, UserRole, Organization
-from .serializers import UserDetailSerializer
+from django.db import transaction
+from .models import User, UserRole, Organization, Invite
+from .serializers import UserDetailSerializer, VerifyInviteSerializer, SetPasswordSerializer
 from .permissions import PermissionChecker
 
 
@@ -269,3 +270,84 @@ def get_current_user(request):
     }
 
     return Response(response_data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def verify_invite(request):
+    """Verify invite token validity"""
+    token = request.query_params.get('token')
+    
+    if not token:
+        return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        invite = Invite.objects.select_related('user').get(token=token)
+        
+        if not invite.is_valid():
+            return Response(
+                {'error': 'Invite is invalid or expired'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return Response({
+            'valid': True,
+            'user_email': invite.user.email,
+            'user_name': invite.user.get_full_name(),
+            'organization': invite.user.organization.name,
+            'expires_at': invite.expires_at,
+        }, status=status.HTTP_200_OK)
+        
+    except Invite.DoesNotExist:
+        return Response({'error': 'Invite not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@transaction.atomic
+def set_password(request):
+    """Set password for invited user"""
+    serializer = SetPasswordSerializer(data=request.data)
+    
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        invite = Invite.objects.select_related('user').get(token=serializer.validated_data['token'])
+        
+        if not invite.is_valid():
+            return Response(
+                {'error': 'Invite is invalid or expired'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Set password
+        user = invite.user
+        user.set_password(serializer.validated_data['password'])
+        user.is_active = True
+        user.save()
+        
+        # Mark invite as used
+        invite.is_used = True
+        invite.save()
+        
+        # Log action
+        PermissionChecker.log_action(
+            organization=user.organization,
+            user=user,
+            action='login',
+            resource_type='User',
+            resource_id=str(user.id),
+            description='Completed email invite registration',
+            ip_address=PermissionChecker._get_client_ip(request),
+        )
+        
+        return Response(
+            {'message': 'Password set successfully. You can now login.'},
+            status=status.HTTP_200_OK
+        )
+        
+    except Invite.DoesNotExist:
+        return Response({'error': 'Invite not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
