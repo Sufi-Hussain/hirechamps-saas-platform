@@ -1,20 +1,8 @@
 'use client'
 
-import useSWR from 'swr'
-import api from '@/lib/api'
 import { format } from 'date-fns'
 import { AlertCircle, Megaphone } from 'lucide-react'
-
-const fetcher = (url: string) => api.get(url).then((res) => res.data)
-
-interface Announcement {
-  id: string
-  title: string
-  content: string
-  author: string
-  created_at: string
-  priority: 'low' | 'medium' | 'high'
-}
+import { useDashboardHR, Announcement } from '@/hooks/useDashboardHR'
 
 function AnnouncementSkeleton() {
   return (
@@ -37,10 +25,8 @@ const priorityColors = {
 }
 
 export default function CompanyAnnouncements() {
-  const { data: announcements, isLoading, error } = useSWR(
-    '/announcements/?limit=5&ordering=-created_at',
-    fetcher
-  )
+  const { dashboard, isLoading, error } = useDashboardHR()
+  const announcements = dashboard?.announcements || []
 
   if (isLoading) {
     return (
@@ -69,11 +55,7 @@ export default function CompanyAnnouncements() {
     )
   }
 
-  const data = Array.isArray(announcements)
-    ? announcements
-    : announcements?.results || []
-
-  if (!data || data.length === 0) {
+  if (!announcements || announcements.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -92,7 +74,7 @@ export default function CompanyAnnouncements() {
         Company Announcements
       </h3>
       <div className="space-y-3">
-        {data.map((announcement: Announcement) => (
+        {announcements.map((announcement: Announcement) => (
           <div
             key={announcement.id}
             className={`p-4 border rounded-lg ${

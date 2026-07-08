@@ -1,28 +1,11 @@
 'use client'
 
-import useSWR from 'swr'
 import api from '@/lib/api'
 import { format } from 'date-fns'
 import { AlertCircle, CheckCircle, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
-
-const fetcher = (url: string) => api.get(url).then((res) => res.data)
-
-interface LeaveRequest {
-  id: string
-  employee: {
-    user: {
-      first_name: string
-      last_name: string
-    }
-  }
-  leave_type: string
-  start_date: string
-  end_date: string
-  status: 'pending'
-  reason?: string
-}
+import { useDashboardHR, PendingLeaveRequest } from '@/hooks/useDashboardHR'
 
 function TableSkeleton() {
   return (
@@ -40,10 +23,8 @@ function TableSkeleton() {
 }
 
 export default function PendingLeaveRequests() {
-  const { data: leaveRequests, isLoading, error, mutate } = useSWR(
-    '/leave/requests/?status=pending&limit=5',
-    fetcher
-  )
+  const { dashboard, isLoading, error, mutate } = useDashboardHR()
+  const leaveRequests = dashboard?.pending_leave_requests || []
   const [processingId, setProcessingId] = useState<string | null>(null)
 
   const handleApprove = async (id: string) => {
@@ -93,7 +74,7 @@ export default function PendingLeaveRequests() {
 
   const data = Array.isArray(leaveRequests) ? leaveRequests : leaveRequests?.results || []
 
-  if (!data || data.length === 0) {
+  if (!leaveRequests || leaveRequests.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Pending Leave Requests</h2>
@@ -112,18 +93,18 @@ export default function PendingLeaveRequests() {
       </div>
 
       <div className="space-y-4 p-6">
-        {data.map((request: LeaveRequest) => (
+        {leaveRequests.map((request: PendingLeaveRequest) => (
           <div
             key={request.id}
             className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
           >
             <div className="flex-1">
               <p className="font-medium text-gray-900">
-                {request.employee.user.first_name} {request.employee.user.last_name}
+                {request.employee_name}
               </p>
               <p className="text-sm text-gray-600 mt-1">
                 {request.leave_type} • {format(new Date(request.start_date), 'MMM dd')} -{' '}
-                {format(new Date(request.end_date), 'MMM dd, yyyy')}
+                {format(new Date(request.end_date), 'MMM dd, yyyy')} ({request.days} days)
               </p>
               {request.reason && (
                 <p className="text-sm text-gray-500 mt-1">Reason: {request.reason}</p>

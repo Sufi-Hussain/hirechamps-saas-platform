@@ -1,7 +1,5 @@
 'use client'
 
-import useSWR from 'swr'
-import api from '@/lib/api'
 import {
   Users,
   UserCheck,
@@ -9,15 +7,13 @@ import {
   CalendarDays,
   AlertCircle,
 } from 'lucide-react'
-
-const fetcher = (url: string) => api.get(url).then((res) => res.data)
+import { useDashboardHR } from '@/hooks/useDashboardHR'
 
 interface KPICard {
   label: string
   icon: React.ComponentType<{ className: string }>
   color: string
-  endpoint: string
-  dataKey: string
+  dataKey: 'total_employees' | 'active_employees' | 'pending_invites' | 'new_joiners' | 'employees_on_leave'
 }
 
 const kpiCards: KPICard[] = [
@@ -25,36 +21,31 @@ const kpiCards: KPICard[] = [
     label: 'Total Employees',
     icon: Users,
     color: 'blue',
-    endpoint: '/employees/stats/',
-    dataKey: 'total',
+    dataKey: 'total_employees',
   },
   {
     label: 'Active Employees',
     icon: UserCheck,
     color: 'green',
-    endpoint: '/employees/stats/',
-    dataKey: 'active',
+    dataKey: 'active_employees',
   },
   {
     label: 'Pending Invitations',
     icon: Clock,
     color: 'yellow',
-    endpoint: '/invites/stats/',
-    dataKey: 'pending',
+    dataKey: 'pending_invites',
   },
   {
     label: 'New Joinees (This Month)',
     icon: CalendarDays,
     color: 'purple',
-    endpoint: '/employees/stats/',
-    dataKey: 'new_this_month',
+    dataKey: 'new_joiners',
   },
   {
     label: 'Employees on Leave Today',
     icon: AlertCircle,
     color: 'red',
-    endpoint: '/leave/today/',
-    dataKey: 'count',
+    dataKey: 'employees_on_leave',
   },
 ]
 
@@ -81,44 +72,15 @@ const colorClasses = {
 }
 
 export default function KPICards() {
-  const { data: employeeStats, isLoading: employeeLoading } = useSWR(
-    '/employees/stats/',
-    fetcher
-  )
-  const { data: inviteStats, isLoading: inviteLoading } = useSWR(
-    '/invites/stats/',
-    fetcher
-  )
-  const { data: leaveToday, isLoading: leaveLoading } = useSWR(
-    '/leave/today/',
-    fetcher
-  )
-
-  const isLoading = employeeLoading || inviteLoading || leaveLoading
-
-  const getKPIValue = (card: KPICard) => {
-    if (isLoading) return '—'
-
-    if (card.endpoint === '/employees/stats/') {
-      return employeeStats?.[card.dataKey] ?? 0
-    }
-    if (card.endpoint === '/invites/stats/') {
-      return inviteStats?.[card.dataKey] ?? 0
-    }
-    if (card.endpoint === '/leave/today/') {
-      return leaveToday?.[card.dataKey] ?? 0
-    }
-
-    return 0
-  }
+  const { dashboard, isLoading } = useDashboardHR()
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       {kpiCards.map((card) => {
         const Icon = card.icon
-        const value = getKPIValue(card)
+        const value = isLoading ? '—' : (dashboard?.stats[card.dataKey] ?? 0)
 
-        if (isLoading && (employeeLoading || inviteLoading || leaveLoading)) {
+        if (isLoading) {
           return <KPICardSkeleton key={card.label} />
         }
 

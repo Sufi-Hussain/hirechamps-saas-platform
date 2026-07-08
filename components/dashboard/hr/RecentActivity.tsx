@@ -1,23 +1,8 @@
 'use client'
 
-import useSWR from 'swr'
-import api from '@/lib/api'
 import { format } from 'date-fns'
 import { AlertCircle } from 'lucide-react'
-
-const fetcher = (url: string) => api.get(url).then((res) => res.data)
-
-interface ActivityLog {
-  id: string
-  action: string
-  resource_type: string
-  description: string
-  user: {
-    first_name: string
-    last_name: string
-  }
-  timestamp: string
-}
+import { useDashboardHR, ActivityLog } from '@/hooks/useDashboardHR'
 
 function ActivitySkeleton() {
   return (
@@ -45,10 +30,8 @@ const actionIcons: Record<string, string> = {
 }
 
 export default function RecentActivity() {
-  const { data: activities, isLoading, error } = useSWR(
-    '/audit-logs/?limit=10&ordering=-timestamp',
-    fetcher
-  )
+  const { dashboard, isLoading, error } = useDashboardHR()
+  const activities = dashboard?.recent_activity || []
 
   if (isLoading) {
     return (
@@ -71,9 +54,7 @@ export default function RecentActivity() {
     )
   }
 
-  const data = Array.isArray(activities) ? activities : activities?.results || []
-
-  if (!data || data.length === 0) {
+  if (!activities || activities.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>

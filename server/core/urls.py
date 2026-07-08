@@ -10,6 +10,7 @@ from .views import (
 from .auth_views import login, logout, change_password, get_current_user, verify_invite, set_password
 from .account_views import register_company, invite_employee, create_hr_user, get_user_organizations
 from .navigation_views import get_navigation_menu
+from .dashboard_views import dashboard_hr
 
 router = DefaultRouter()
 router.register(r'organizations', OrganizationViewSet)
@@ -42,5 +43,6 @@ urlpatterns = [
     path('accounts/create-hr-user/', create_hr_user, name='create-hr-user'),
     path('accounts/my-organizations/', get_user_organizations, name='my-organizations'),
     path('navigation/menu/', get_navigation_menu, name='navigation-menu'),
+    path('dashboard/hr/', dashboard_hr, name='dashboard-hr'),
     path('', include(router.urls)),
 ]

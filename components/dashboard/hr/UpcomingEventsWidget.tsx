@@ -1,19 +1,8 @@
 'use client'
 
-import useSWR from 'swr'
-import api from '@/lib/api'
 import { format } from 'date-fns'
 import { AlertCircle, Cake, Award } from 'lucide-react'
-
-const fetcher = (url: string) => api.get(url).then((res) => res.data)
-
-interface UpcomingEvent {
-  id: string
-  employee_name: string
-  event_type: 'birthday' | 'anniversary'
-  date: string
-  years_of_service?: number
-}
+import { useDashboardHR, UpcomingEvent } from '@/hooks/useDashboardHR'
 
 function EventSkeleton() {
   return (
@@ -32,10 +21,8 @@ function EventSkeleton() {
 }
 
 export default function UpcomingEventsWidget() {
-  const { data: events, isLoading, error } = useSWR(
-    '/employees/upcoming-events/',
-    fetcher
-  )
+  const { dashboard, isLoading, error } = useDashboardHR()
+  const events = dashboard?.upcoming_events || []
 
   if (isLoading) {
     return (
@@ -58,9 +45,7 @@ export default function UpcomingEventsWidget() {
     )
   }
 
-  const data = Array.isArray(events) ? events : events?.results || []
-
-  if (!data || data.length === 0) {
+  if (!events || events.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="font-semibold text-gray-900 mb-4">Upcoming Birthdays & Anniversaries</h3>
@@ -73,24 +58,24 @@ export default function UpcomingEventsWidget() {
     <div className="bg-white rounded-lg border border-gray-200 p-6">
       <h3 className="font-semibold text-gray-900 mb-4">Upcoming Birthdays & Anniversaries</h3>
       <div className="space-y-3">
-        {data.map((event: UpcomingEvent) => (
+        {events.map((event: UpcomingEvent) => (
           <div
-            key={event.id}
+            key={`${event.type}-${event.employee_id}-${event.date}`}
             className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
           >
             <div className="flex-shrink-0">
-              {event.event_type === 'birthday' ? (
+              {event.type === 'birthday' ? (
                 <Cake className="h-5 w-5 text-blue-600" />
               ) : (
                 <Award className="h-5 w-5 text-purple-600" />
               )}
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">{event.employee_name}</p>
+              <p className="text-sm font-medium text-gray-900">{event.name}</p>
               <p className="text-xs text-gray-600">
-                {event.event_type === 'birthday'
+                {event.type === 'birthday'
                   ? `Birthday on ${format(new Date(event.date), 'MMM dd')}`
-                  : `${event.years_of_service} years with us on ${format(
+                  : `${event.years} years with us on ${format(
                       new Date(event.date),
                       'MMM dd'
                     )}`}

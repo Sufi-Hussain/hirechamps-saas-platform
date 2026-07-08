@@ -1,25 +1,10 @@
 'use client'
 
-import useSWR from 'swr'
-import api from '@/lib/api'
 import { format } from 'date-fns'
 import { AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-
-const fetcher = (url: string) => api.get(url).then((res) => res.data)
-
-interface Invitation {
-  id: string
-  user: {
-    email: string
-    first_name: string
-    last_name: string
-  }
-  status: 'pending' | 'accepted' | 'expired'
-  created_at: string
-  expires_at: string
-}
+import { useDashboardHR, RecentInvite } from '@/hooks/useDashboardHR'
 
 function TableSkeleton() {
   return (
@@ -42,10 +27,8 @@ const statusColors = {
 }
 
 export default function RecentInvitations() {
-  const { data: invitations, isLoading, error } = useSWR(
-    '/accounts/invite-employee/?limit=5',
-    fetcher
-  )
+  const { dashboard, isLoading, error } = useDashboardHR()
+  const invitations = dashboard?.recent_invites || []
 
   if (isLoading) {
     return (
@@ -68,9 +51,7 @@ export default function RecentInvitations() {
     )
   }
 
-  const data = Array.isArray(invitations) ? invitations : invitations?.results || []
-
-  if (!data || data.length === 0) {
+  if (!invitations || invitations.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Invitations</h2>
@@ -119,12 +100,12 @@ export default function RecentInvitations() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {data.map((invite: Invitation) => (
+            {invitations.map((invite: RecentInvite) => (
               <tr key={invite.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 text-sm text-gray-900">
-                  {invite.user.first_name} {invite.user.last_name}
+                  {invite.name}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-600">{invite.user.email}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">{invite.email}</td>
                 <td className="px-6 py-4 text-sm">
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -135,7 +116,7 @@ export default function RecentInvitations() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
-                  {format(new Date(invite.created_at), 'MMM dd, yyyy')}
+                  {format(new Date(invite.sent_date), 'MMM dd, yyyy')}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
                   {format(new Date(invite.expires_at), 'MMM dd, yyyy')}
