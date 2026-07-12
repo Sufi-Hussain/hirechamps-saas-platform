@@ -158,12 +158,15 @@ export const useAuthStore = create<AuthStore>()(
 
           const data = await response.json()
           
-          // Store tokens
+          // Store tokens in localStorage and cookies
           if (data.access_token) {
             localStorage.setItem('accessToken', data.access_token)
+            // Also set in cookie for middleware
+            document.cookie = `accessToken=${data.access_token}; path=/; max-age=86400`
           }
           if (data.refresh_token) {
             localStorage.setItem('refreshToken', data.refresh_token)
+            document.cookie = `refreshToken=${data.refresh_token}; path=/; max-age=604800`
           }
 
           // Store user data
