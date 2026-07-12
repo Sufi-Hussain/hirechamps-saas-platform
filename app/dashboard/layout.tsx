@@ -4,6 +4,7 @@ import { ReactNode, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore, useUIStore } from '@/lib/store'
+import { CanAccess } from '@/components/wrappers/CanAccess'
 import {
   Menu,
   LayoutDashboard,
@@ -16,22 +17,36 @@ import {
   Settings,
   LogOut,
   ChevronDown,
+  Shield,
+  Gauge,
 } from 'lucide-react'
 
-const modules = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-  { id: 'employees', label: 'Employees', icon: Users, href: '/dashboard/employees' },
-  { id: 'leave', label: 'Leave & Attendance', icon: Calendar, href: '/dashboard/leave' },
-  { id: 'payroll', label: 'Payroll', icon: DollarSign, href: '/dashboard/payroll' },
-  { id: 'recruitment', label: 'Recruitment', icon: Briefcase, href: '/dashboard/recruitment' },
-  { id: 'learning', label: 'Learning', icon: BookOpen, href: '/dashboard/learning' },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3, href: '/dashboard/analytics' },
-]
+// Module visibility rules based on roles
+const getAvailableModules = (roles: string[]) => {
+  const allModules = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', roles: ['*'] },
+    { id: 'employees', label: 'Employees', icon: Users, href: '/dashboard/employees', roles: ['admin', 'hr', 'org_admin', 'manager'] },
+    { id: 'leave', label: 'Leave Management', icon: Calendar, href: '/dashboard/leave', roles: ['*'] },
+    { id: 'payroll', label: 'Payroll', icon: DollarSign, href: '/dashboard/payroll', roles: ['admin', 'payroll_manager', 'org_admin'] },
+    { id: 'recruitment', label: 'Recruitment', icon: Briefcase, href: '/dashboard/recruitment', roles: ['admin', 'hr', 'org_admin'] },
+    { id: 'learning', label: 'Learning', icon: BookOpen, href: '/dashboard/learning', roles: ['*'] },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3, href: '/dashboard/analytics', roles: ['admin', 'org_admin', 'manager'] },
+    { id: 'hr', label: 'HR Operations', icon: Users, href: '/dashboard/hr', roles: ['admin', 'hr', 'org_admin'] },
+    { id: 'audit', label: 'Audit Logs', icon: Shield, href: '/dashboard/audit', roles: ['admin', 'org_admin', 'super_admin'] },
+    { id: 'settings', label: 'Settings', icon: Settings, href: '/dashboard/settings', roles: ['admin', 'org_admin', 'super_admin'] },
+  ]
+
+  return allModules.filter((module) => {
+    if (module.roles.includes('*')) return true
+    return module.roles.some((role) => roles.includes(role))
+  })
+}
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter()
-  const { user, logout } = useAuthStore()
+  const { user, logout, roles } = useAuthStore()
   const { isSidebarOpen, setSidebarOpen, activeModule } = useUIStore()
+  const modules = getAvailableModules(roles)
 
   useEffect(() => {
     if (!user) {
