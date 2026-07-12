@@ -11,6 +11,11 @@ from .auth_views import login, logout, change_password, get_current_user, verify
 from .account_views import register_company, invite_employee, create_hr_user, get_user_organizations
 from .navigation_views import get_navigation_menu
 from .dashboard_views import dashboard_hr
+from .payroll_views import (
+    SalaryComponentViewSet, SalaryStructureViewSet, PayrollCycleViewSet,
+    PayslipViewSet, ReimbursementViewSet, LoanViewSet, TaxSummaryViewSet,
+    PayrollStatsView
+)
 
 router = DefaultRouter()
 router.register(r'organizations', OrganizationViewSet)
@@ -30,6 +35,13 @@ router.register(r'candidates', CandidateViewSet, basename='candidate')
 router.register(r'training-programs', TrainingProgramViewSet, basename='training-program')
 router.register(r'training-enrollments', TrainingEnrollmentViewSet, basename='training-enrollment')
 router.register(r'audit-logs', AuditLogViewSet, basename='audit-log')
+router.register(r'payroll/salary-components', SalaryComponentViewSet, basename='salary-component')
+router.register(r'payroll/salary-structures', SalaryStructureViewSet, basename='payroll-salary-structure')
+router.register(r'payroll/payroll-cycles', PayrollCycleViewSet, basename='payroll-cycle')
+router.register(r'payroll/payslips', PayslipViewSet, basename='payslip')
+router.register(r'payroll/reimbursements', ReimbursementViewSet, basename='reimbursement')
+router.register(r'payroll/loans', LoanViewSet, basename='loan')
+router.register(r'payroll/tax-summaries', TaxSummaryViewSet, basename='tax-summary')
 
 urlpatterns = [
     path('auth/login/', login, name='login'),
@@ -44,5 +56,6 @@ urlpatterns = [
     path('accounts/my-organizations/', get_user_organizations, name='my-organizations'),
     path('navigation/menu/', get_navigation_menu, name='navigation-menu'),
     path('dashboard/hr/', dashboard_hr, name='dashboard-hr'),
+    path('payroll/stats/', PayrollStatsView.as_view({'get': 'stats'}), name='payroll-stats'),
     path('', include(router.urls)),
 ]
