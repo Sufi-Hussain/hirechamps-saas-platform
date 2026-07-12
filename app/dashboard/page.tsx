@@ -1,30 +1,47 @@
 'use client'
-import { useAuthStore } from '@/lib/store'
-import { Calendar, Clock, Book, Award } from 'lucide-react'
 
-export default function EmployeeDashboard() {
-  const { user } = useAuthStore()
-  const stats = [
-    { label: 'Leave Balance', value: '12 days', icon: Calendar },
-    { label: 'Present This Month', value: '18 days', icon: Clock },
-    { label: 'In Progress', value: '2 courses', icon: Book },
-    { label: 'Completed', value: '5 certifications', icon: Award },
-  ]
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuthStore } from '@/lib/store'
+import { Loader } from 'lucide-react'
+
+export default function DashboardPage() {
+  const router = useRouter()
+  const { user, roles, dashboardRoute, isAuthenticated } = useAuthStore()
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      router.push('/auth/login')
+      return
+    }
+
+    // Route based on dashboardRoute from backend or fallback to role-based routing
+    if (dashboardRoute && dashboardRoute !== '/dashboard') {
+      router.push(dashboardRoute)
+    } else {
+      // Fallback routing based on roles
+      if (roles.includes('super_admin')) {
+        router.push('/dashboard/platform-admin')
+      } else if (roles.includes('org_admin') || roles.includes('admin')) {
+        router.push('/dashboard/owner')
+      } else if (roles.includes('hr')) {
+        router.push('/dashboard/hr')
+      } else if (roles.includes('payroll_manager')) {
+        router.push('/dashboard/payroll')
+      } else if (roles.includes('manager')) {
+        router.push('/dashboard/admin')
+      } else {
+        // Default to employee dashboard
+        router.push('/dashboard/employee')
+      }
+    }
+  }, [isAuthenticated, user, dashboardRoute, roles, router])
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">My Dashboard</h1>
-        <p className="text-gray-600 mt-1">Welcome back, {user?.first_name}! Here&apos;s your personal overview.</p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {stats.map((s, i) => (
-          <div key={i} className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex justify-between items-start">
-              <div><p className="text-sm text-gray-600">{s.label}</p><p className="text-2xl font-bold mt-2">{s.value}</p></div>
-              <s.icon className="h-6 w-6 text-blue-600" />
-            </div>
-          </div>
-        ))}
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <Loader className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+        <p className="text-gray-600">Redirecting to your dashboard...</p>
       </div>
     </div>
   )
