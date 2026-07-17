@@ -1,10 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import useSWR from 'swr'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { Plus, Calendar, Check, X } from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Modal, ModalContent, ModalHeader, ModalTitle, ModalDescription, ModalTrigger, ModalClose } from '@/components/ui/modal'
+import { LeaveBalanceCards } from '@/components/leave/LeaveBalanceCards'
+import { LeaveTable } from '@/components/leave/LeaveTable'
+import { Plus, Check, X } from 'lucide-react'
 
 const fetcher = (url: string) => api.get(url).then((res) => res.data)
 
@@ -18,7 +22,7 @@ export default function LeaveAndAttendancePage() {
     reason: '',
   })
 
-  const { data: leaveRequests, mutate: mutateRequests } = useSWR(
+  const { data: leaveRequests, mutate: mutateRequests, isLoading: isLoadingRequests } = useSWR(
     '/leave-requests/?ordering=-start_date',
     fetcher
   )
@@ -66,50 +70,132 @@ export default function LeaveAndAttendancePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Leave & Attendance</h1>
-          <p className="text-gray-600 mt-1">Manage leave requests and track attendance</p>
+          <h1 className="text-4xl font-bold tracking-tight">Leave Management</h1>
+          <p className="text-muted-foreground mt-2">Manage your leave applications and balance</p>
         </div>
-        <Button
-          onClick={() => setShowModal(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
-        >
-          <Plus className="h-5 w-5" />
-          Request Leave
-        </Button>
+        <Modal open={showModal} onOpenChange={setShowModal}>
+          <ModalTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Apply for Leave
+            </Button>
+          </ModalTrigger>
+          <ModalContent>
+            <ModalHeader>
+              <ModalTitle>Apply for Leave</ModalTitle>
+              <ModalDescription>Fill in the details to apply for leave</ModalDescription>
+            </ModalHeader>
+            <div className="space-y-4 p-4">
+              <div>
+                <label className="text-sm font-medium">Leave Type</label>
+                <select 
+                  value={formData.leave_type}
+                  onChange={(e) => setFormData({ ...formData, leave_type: e.target.value })}
+                  className="mt-2 w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Select Leave Type</option>
+                  {leaveTypes?.map((type: any) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">From Date</label>
+                  <input
+                    type="date"
+                    value={formData.start_date}
+                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    className="mt-2 w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">To Date</label>
+                  <input
+                    type="date"
+                    value={formData.end_date}
+                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    className="mt-2 w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Reason</label>
+                <textarea
+                  placeholder="Enter reason for leave"
+                  value={formData.reason}
+                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                  rows={3}
+                  className="mt-2 w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div className="flex gap-3 justify-end pt-4 border-t">
+                <ModalClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </ModalClose>
+                <Button onClick={handleSubmitLeaveRequest}>Submit Application</Button>
+              </div>
+            </div>
+          </ModalContent>
+        </Modal>
       </div>
 
+      {/* Leave Balance Cards */}
+      {activeTab === 'balance' && (
+        <section>
+          <h2 className="text-xl font-semibold mb-4">Your Leave Balance</h2>
+          {leaveBalance && (
+            <LeaveBalanceCards
+              leaveTypes={leaveBalance.map((balance: any) => ({
+                id: balance.id,
+                name: balance.leave_type_name,
+                available: balance.balance,
+                used: balance.used,
+                total: balance.balance + balance.used,
+                color: 'bg-blue-600',
+              }))}
+            />
+          )}
+        </section>
+      )}
+
       {/* Tabs */}
-      <div className="flex gap-4 border-b border-gray-200">
+      <div className="flex gap-2 overflow-x-auto pb-2">
         <button
           onClick={() => setActiveTab('requests')}
-          className={`px-4 py-3 font-medium border-b-2 transition ${
+          className={`px-4 py-2 rounded-lg transition ${
             activeTab === 'requests'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted hover:bg-muted/80'
           }`}
         >
-          Leave Requests
+          Leave History
         </button>
         <button
           onClick={() => setActiveTab('balance')}
-          className={`px-4 py-3 font-medium border-b-2 transition ${
+          className={`px-4 py-2 rounded-lg transition ${
             activeTab === 'balance'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted hover:bg-muted/80'
           }`}
         >
           Leave Balance
         </button>
         <button
           onClick={() => setActiveTab('attendance')}
-          className={`px-4 py-3 font-medium border-b-2 transition ${
+          className={`px-4 py-2 rounded-lg transition ${
             activeTab === 'attendance'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted hover:bg-muted/80'
           }`}
         >
           Attendance
@@ -118,88 +204,30 @@ export default function LeaveAndAttendancePage() {
 
       {/* Content */}
       {activeTab === 'requests' && (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <section>
+          <h2 className="text-xl font-semibold mb-4">Leave History</h2>
           {leaveRequests?.results && leaveRequests.results.length > 0 ? (
-            <div className="divide-y divide-gray-200">
-              {leaveRequests.results.map((request: any) => (
-                <div key={request.id} className="p-6 hover:bg-gray-50 transition">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{request.leave_type_name}</h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {request.start_date} to {request.end_date} • {request.number_of_days} days
-                      </p>
-                      <p className="text-sm text-gray-600 mt-1">Reason: {request.reason}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          request.status === 'approved'
-                            ? 'bg-green-100 text-green-800'
-                            : request.status === 'rejected'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}
-                      >
-                        {request.status}
-                      </span>
-                      {request.status === 'pending' && (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleApproveLeave(request.id)}
-                            className="p-2 hover:bg-green-100 text-green-600 rounded transition"
-                          >
-                            <Check className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleRejectLeave(request.id)}
-                            className="p-2 hover:bg-red-100 text-red-600 rounded transition"
-                          >
-                            <X className="h-5 w-5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <LeaveTable
+              data={leaveRequests.results.map((request: any) => ({
+                id: request.id,
+                type: request.leave_type_name,
+                fromDate: request.start_date,
+                toDate: request.end_date,
+                days: request.number_of_days,
+                reason: request.reason,
+                status: request.status.charAt(0).toUpperCase() + request.status.slice(1),
+                appliedDate: request.created_at,
+              }))}
+              isLoading={isLoadingRequests}
+            />
           ) : (
-            <div className="p-8 text-center text-gray-600">No leave requests found.</div>
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                No leave requests found.
+              </CardContent>
+            </Card>
           )}
-        </div>
-      )}
-
-      {activeTab === 'balance' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {leaveBalance?.map((balance: any) => (
-            <div key={balance.id} className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="font-semibold text-gray-900">{balance.leave_type_name}</h3>
-              <div className="mt-4 space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total Balance</span>
-                  <span className="font-semibold text-gray-900">{balance.balance} days</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Used</span>
-                  <span className="font-semibold text-gray-900">{balance.used} days</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Carryforward</span>
-                  <span className="font-semibold text-gray-900">{balance.carryforward} days</span>
-                </div>
-                <div className="pt-3 border-t border-gray-200">
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full"
-                      style={{ width: `${Math.min((balance.balance / (balance.balance + balance.used)) * 100, 100)}%` }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        </section>
       )}
 
       {activeTab === 'attendance' && (
