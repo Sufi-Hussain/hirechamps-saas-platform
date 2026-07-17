@@ -18,15 +18,24 @@ import {
   ChevronDown,
 } from 'lucide-react'
 
-const modules = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-  { id: 'employees', label: 'Employees', icon: Users, href: '/dashboard/employees' },
-  { id: 'leave', label: 'Leave & Attendance', icon: Calendar, href: '/dashboard/leave' },
-  { id: 'payroll', label: 'Payroll', icon: DollarSign, href: '/dashboard/payroll' },
-  { id: 'recruitment', label: 'Recruitment', icon: Briefcase, href: '/dashboard/recruitment' },
-  { id: 'learning', label: 'Learning', icon: BookOpen, href: '/dashboard/learning' },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3, href: '/dashboard/analytics' },
-]
+import { navigationConfig } from '@/lib/navigation'
+
+// Flatten navigation config for easier access
+const getModulesFromNav = () => {
+  const modules: any[] = []
+  navigationConfig.forEach((section) => {
+    section.items.forEach((item) => {
+      modules.push({
+        id: item.href.split('/').pop() || 'dashboard',
+        label: item.title,
+        icon: item.icon || LayoutDashboard,
+        href: item.href,
+        description: item.description,
+      })
+    })
+  })
+  return modules
+}
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter()
@@ -65,26 +74,48 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-            {modules.map((module) => {
-              const Icon = module.icon
-              const isActive = activeModule === module.id
-              return (
-                <Link
-                  key={module.id}
-                  href={module.href}
-                  onClick={() => useUIStore.setState({ activeModule: module.id })}
-                  className={`flex items-center gap-3 px-4 py-2 rounded-lg transition ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-600 font-medium'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span>{module.label}</span>
-                </Link>
-              )
-            })}
+          <nav className="flex-1 px-4 py-6 space-y-4 overflow-y-auto">
+            {navigationConfig.map((section) => (
+              <div key={section.title}>
+                <h3 className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  {section.title}
+                </h3>
+                <div className="space-y-1">
+                  {section.items.map((item) => {
+                    const Icon = item.icon || LayoutDashboard
+                    const itemId = item.href.split('/').pop() || 'dashboard'
+                    const isActive = activeModule === itemId
+                    
+                    // Check if user has permission to view this item
+                    if (item.roles && !item.roles.includes(user?.role || '')) {
+                      return null
+                    }
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => useUIStore.setState({ activeModule: itemId })}
+                        title={item.description}
+                        className={`flex items-center gap-3 px-4 py-2 rounded-lg transition ${
+                          isActive
+                            ? 'bg-blue-50 text-blue-600 font-medium'
+                            : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        <Icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="truncate">{item.title}</span>
+                        {item.badge && (
+                          <span className="ml-auto px-2 py-1 text-xs bg-red-100 text-red-700 rounded-full">
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
 
           {/* Footer */}
